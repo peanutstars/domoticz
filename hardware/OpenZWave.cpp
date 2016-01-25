@@ -2395,6 +2395,7 @@ void COpenZWave::UpdateValue(const OpenZWave::ValueID &vID)
 	time_t atime = mytime(NULL);
 	std::stringstream sstr;
 	sstr << int(NodeID) << ".instances." << int(instance) << ".commandClasses." << int(commandclass) << ".data";
+	bool bValidScaleID = false ;
 
 	if (
 		(vLabel == "Energy") ||
@@ -2424,6 +2425,10 @@ void COpenZWave::UpdateValue(const OpenZWave::ValueID &vID)
 			scaleID = SCALEID_CO2;
 		else if (vLabel == "Water")
 			scaleID = SCALEID_WATER;
+
+		if (scaleID != 0) {
+			bValidScaleID = true ;
+		}
 
 		sstr << "." << scaleID;
 	}
@@ -2572,8 +2577,27 @@ void COpenZWave::UpdateValue(const OpenZWave::ValueID &vID)
 			}
 		}
 	}
-	if (pDevice == NULL)
+	if (pDevice == NULL) {
+		if (bValidScaleID) {
+			/* XXX : 2016.01.25 by peanutstars
+			   In the first adding a zwave device, sometimes pDevice is NULL.
+			   I think that the fundamental reason is that Type_ValueAdded event is not issued in OpenZWave.
+			   Log Messages :
+					Received: 0x01, 0x0a, 0x00, 0x04, 0x00, 0x06, 0x04, 0x32, 0x04, 0x81, 0x05, 0x41
+					New device: 6.instances.1.commandClasses.50.data.1 -->> Not Issued.
+					New device: 6.instances.1.commandClasses.50.data.2 -->> Issued. 
+
+			   To avoid this has two temporary methods.
+			   1st method, restart a domoticz after make inclusion process.
+			   2nd method, include this codes.
+			*/
+			NodeInfo *pNode = GetNodeInfo(HomeID, NodeID);
+			if (pNode) {
+				AddValue(vID, pNode) ;
+			}
+		}
 		return;
+	}
 
 	pDevice->bValidValue = true;
 	pDevice->orgInstanceID = vOrgInstance;
